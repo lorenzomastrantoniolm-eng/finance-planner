@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  LogOut,
   Settings,
   User,
   Wallet,
@@ -10,6 +9,7 @@ import {
   Database,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 
 export default function ImpostazioniPage() {
   const supabase = createClient();
@@ -24,17 +24,11 @@ export default function ImpostazioniPage() {
     const savedCurrency = localStorage.getItem("finance_currency");
 
     async function loadProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
       const { data } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user.id)
-        .single();
+        .eq("id", LOCAL_USER_ID)
+        .maybeSingle();
 
       if (data?.full_name) {
         setName(data.full_name);
@@ -53,24 +47,14 @@ export default function ImpostazioniPage() {
     localStorage.setItem("finance_first_day", firstDay);
     localStorage.setItem("finance_currency", currency);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      await supabase.from("profiles").upsert({
-        id: user.id,
-        full_name: name.trim(),
-      });
-    }
+    await supabase.from("profiles").upsert({
+      id: LOCAL_USER_ID,
+      full_name: name.trim(),
+    });
 
     setSaving(false);
   }
 
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.reload();
-  }
 
   return (
     <main className="min-h-screen bg-zinc-50 p-6 lg:p-10">
@@ -211,13 +195,6 @@ export default function ImpostazioniPage() {
               Esci dal tuo account Finance Planner.
             </p>
 
-            <button
-              onClick={logout}
-              className="mt-5 flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
-            >
-              <LogOut size={17} />
-              Esci dall&apos;account
-            </button>
           </section>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMonthRange } from "@/lib/finance/month";
 import { calculateMonthlyActuals } from "@/lib/finance/calculations";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 
 function isValidAmount(value: unknown) {
   const amount = Number(value);
@@ -12,9 +13,7 @@ function isValidAmount(value: unknown) {
 export async function GET(request: Request) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   if (!user) {
     return NextResponse.json(
@@ -50,21 +49,21 @@ export async function GET(request: Request) {
     supabase
       .from("monthly_plans")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", `${month}-01`)
       .maybeSingle(),
 
     supabase
       .from("budgets")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", `${month}-01`)
       .order("category"),
 
     supabase
       .from("transactions")
       .select("amount, type, category, date")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .gte("date", range.start)
       .lt("date", range.end)
       .order("date", { ascending: true }),
@@ -122,9 +121,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   if (!user) {
     return NextResponse.json(
@@ -222,7 +219,7 @@ export async function POST(request: Request) {
     await supabase
       .from("monthly_plans")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", `${month}-01`)
       .maybeSingle();
 
@@ -264,7 +261,7 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
-        .eq("user_id", user.id)
+        .eq("user_id", LOCAL_USER_ID)
         .select()
         .single();
 
@@ -287,7 +284,7 @@ export async function POST(request: Request) {
       .from("monthly_plans")
       .upsert(
         {
-          user_id: user.id,
+          user_id: LOCAL_USER_ID,
           month,
           expected_income: Number(expected_income),
           savings_goal: Number(savings_goal),
@@ -319,7 +316,7 @@ export async function POST(request: Request) {
       const { error: deleteAllError } = await supabase
         .from("budgets")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", LOCAL_USER_ID)
         .eq("month", `${month}-01`);
 
       if (deleteAllError) {
@@ -332,7 +329,7 @@ export async function POST(request: Request) {
       const { error: deleteOldError } = await supabase
         .from("budgets")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", LOCAL_USER_ID)
         .eq("month", `${month}-01`)
         .not("category", "in", `(${categories.join(",")})`);
 
@@ -345,7 +342,7 @@ export async function POST(request: Request) {
 
       if (budgets.length > 0) {
         const budgetRows = budgets.map((budget) => ({
-          user_id: user.id,
+          user_id: LOCAL_USER_ID,
           month,
           category: String(budget.category).trim(),
           planned_amount: Number(budget.planned_amount),

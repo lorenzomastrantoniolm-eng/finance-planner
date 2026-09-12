@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 import { getMonthRange } from "@/lib/finance/month";
 import {
   calculateMonthlyActuals,
@@ -15,9 +16,7 @@ function getTodayKey() {
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   if (!user) {
     return NextResponse.json(
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
       .select(
         "id, user_id, account_id, date, description, amount, type, category, notes"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .gte("date", startDate)
       .lt("date", nextMonth)
       .order("date", { ascending: true }),
@@ -86,25 +85,25 @@ export async function GET(request: NextRequest) {
       .select(
         "id, name, amount, type, day, category, active"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("active", true)
       .order("day", { ascending: true }),
 
     supabase
       .from("accounts")
       .select("id, initial_balance")
-      .eq("user_id", user.id),
+      .eq("user_id", LOCAL_USER_ID),
 
     supabase
       .from("budgets")
       .select("category, planned_amount")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", startDate),
 
     supabase
       .from("transactions")
       .select("amount, type")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .lt("date", startDate),
   ]);
 
@@ -163,7 +162,7 @@ export async function GET(request: NextRequest) {
   const previousActuals = calculateMonthlyActuals(
     previousTransactions.map((transaction) => ({
       id: "",
-      user_id: user.id,
+      user_id: LOCAL_USER_ID,
       account_id: "",
       date: "",
       description: "",

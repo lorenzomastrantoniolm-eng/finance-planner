@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 
 const ACCOUNT_TYPES = [
   "conto_corrente",
@@ -14,9 +15,7 @@ type AccountType = (typeof ACCOUNT_TYPES)[number];
 async function getUser() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   return { supabase, user };
 }
@@ -60,7 +59,7 @@ export async function GET() {
   const { data: accounts, error } = await supabase
     .from("accounts")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -82,7 +81,7 @@ export async function GET() {
     const { data, error: transactionsError } = await supabase
       .from("transactions")
       .select("account_id, amount, type")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .in("account_id", accountIds);
 
     if (transactionsError) {
@@ -177,7 +176,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("accounts")
     .insert({
-      user_id: user.id,
+      user_id: LOCAL_USER_ID,
       name,
       type,
       initial_balance: initialBalance,
@@ -256,7 +255,7 @@ export async function PATCH(request: Request) {
     .from("accounts")
     .select("id")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .maybeSingle();
 
   if (existingError) {
@@ -281,7 +280,7 @@ export async function PATCH(request: Request) {
       initial_balance: initialBalance,
     })
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .select()
     .single();
 
@@ -321,7 +320,7 @@ export async function DELETE(request: Request) {
     .from("accounts")
     .select("id")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .maybeSingle();
 
   if (existingError) {
@@ -342,7 +341,7 @@ export async function DELETE(request: Request) {
     .from("accounts")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", LOCAL_USER_ID);
 
   if (error) {
     return NextResponse.json(

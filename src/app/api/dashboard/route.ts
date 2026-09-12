@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 import { getMonthRange } from "@/lib/finance/month";
 import {
   calculateMonthlyActuals,
@@ -10,9 +11,7 @@ import {
 export async function GET(request: Request) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   if (!user) {
     return NextResponse.json(
@@ -42,21 +41,21 @@ export async function GET(request: Request) {
     supabase
       .from("monthly_plans")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", `${month}-01`)
       .maybeSingle(),
 
     supabase
       .from("budgets")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("month", `${month}-01`)
       .order("category"),
 
     supabase
       .from("recurring_transactions")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .eq("active", true)
       .order("day", { ascending: true }),
 
@@ -65,13 +64,13 @@ export async function GET(request: Request) {
       .select(
         "month, expected_income, savings_goal, planned_fixed_expenses, is_closed"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .order("month", { ascending: true }),
 
     supabase
       .from("transactions")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .gte("date", `${month}-01`)
       .lt("date", monthRange.endExclusive)
       .order("date", { ascending: true }),
@@ -153,7 +152,7 @@ export async function GET(request: Request) {
         .select(
           "id, user_id, account_id, date, description, amount, type, category, notes"
         )
-        .eq("user_id", user.id)
+        .eq("user_id", LOCAL_USER_ID)
         .gte("date", `${itemMonth}-01`)
         .lt("date", getMonthRange(itemMonth)!.endExclusive);
 
@@ -167,7 +166,7 @@ export async function GET(request: Request) {
       const { data: monthBudgets } = await supabase
         .from("budgets")
         .select("planned_amount")
-        .eq("user_id", user.id)
+        .eq("user_id", LOCAL_USER_ID)
         .eq("month", `${itemMonth}-01`);
 
       const plannedVariableExpenses =

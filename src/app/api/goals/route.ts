@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { LOCAL_USER_ID } from "@/lib/finance/constants";
 
 async function getUser() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = { id: LOCAL_USER_ID };
 
   return { supabase, user };
 }
@@ -48,7 +47,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("financial_goals")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .order("target_date", {
       ascending: true,
       nullsFirst: false,
@@ -168,7 +167,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("financial_goals")
     .insert({
-      user_id: user.id,
+      user_id: LOCAL_USER_ID,
       name: goalName,
       target_amount: target,
       current_amount: current,
@@ -247,7 +246,7 @@ export async function PATCH(request: Request) {
       .from("financial_goals")
       .select("target_amount, current_amount")
       .eq("id", id)
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .maybeSingle();
 
   if (existingError) {
@@ -376,7 +375,7 @@ export async function PATCH(request: Request) {
     .from("financial_goals")
     .update(updates)
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", LOCAL_USER_ID)
     .select()
     .single();
 
@@ -418,7 +417,7 @@ export async function DELETE(request: Request) {
       .from("financial_goals")
       .select("id")
       .eq("id", id)
-      .eq("user_id", user.id)
+      .eq("user_id", LOCAL_USER_ID)
       .maybeSingle();
 
   if (existingError) {
@@ -439,7 +438,7 @@ export async function DELETE(request: Request) {
     .from("financial_goals")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", LOCAL_USER_ID);
 
   if (error) {
     return NextResponse.json(
