@@ -85,7 +85,6 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [historyRange, setHistoryRange] = useState<3 | 6 | 12>(6);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -145,15 +144,9 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [data]);
 
-  const visibleHistory = useMemo(() => {
-    if (!data) return [];
-
-    return data.history.slice(-historyRange);
-  }, [data, historyRange]);
-
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-50">
+      <main className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <div className="flex items-center gap-2 text-sm text-zinc-500">
           <Loader2 size={18} className="animate-spin" />
           Caricamento dashboard...
@@ -164,8 +157,8 @@ export default function DashboardPage() {
 
   if (error || !data) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
           {error || "Dati non disponibili."}
         </div>
       </main>
@@ -204,22 +197,8 @@ export default function DashboardPage() {
       ? (actual.savings / actual.income) * 100
       : 0;
 
-  const planStatus =
-    summary.afterSavings < 0
-      ? "attention"
-      : actual.expenses > 0 && actual.expenses > summary.totalExpenses
-      ? "warning"
-      : "good";
-
-  const planStatusLabel =
-    planStatus === "attention"
-      ? "Da rivedere"
-      : planStatus === "warning"
-      ? "Da monitorare"
-      : "In linea";
-
   return (
-    <main className="min-h-screen bg-zinc-50">
+    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="mx-auto max-w-7xl px-5 py-7 sm:px-6 lg:px-10 lg:py-9">
         {/* Header */}
         <header className="mb-8">
@@ -229,39 +208,25 @@ export default function DashboardPage() {
                 Panoramica finanziaria
               </p>
 
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-white">
                 Dashboard
               </h1>
 
               <p className="mt-2 text-sm capitalize text-zinc-500">
                 Piano finanziario di{" "}
-                <span className="font-medium text-zinc-800">
+                <span className="font-medium text-zinc-800 dark:text-zinc-300">
                   {monthLabel}
                 </span>
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <span
-                className={`inline-flex h-9 items-center justify-center rounded-full px-3 text-xs font-semibold ${
-                  planStatus === "good"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : planStatus === "warning"
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-red-50 text-red-700"
-                }`}
-              >
-                {planStatusLabel}
-              </span>
-
-              <Link
-                href="/movimenti"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800"
-              >
+            <Link
+              href="/movimenti"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+            >
               <Plus size={17} />
-                Nuovo movimento
-              </Link>
-            </div>
+              Nuovo movimento
+            </Link>
           </div>
         </header>
 
@@ -295,7 +260,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Stato del piano */}
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold">
@@ -340,7 +305,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="mt-7 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-3">
+          <div className="mt-7 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-3 dark:border-zinc-800">
             <MiniStat
               label="Spese fisse"
               value={euro(summary.fixedExpenses)}
@@ -359,7 +324,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Situazione reale */}
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold">
@@ -402,7 +367,7 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="mt-5 rounded-xl bg-zinc-50 p-4/60">
+          <div className="mt-5 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium">
@@ -416,7 +381,7 @@ export default function DashboardPage() {
 
               <Link
                 href="/movimenti"
-                className="mt-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 sm:mt-0"
+                className="mt-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 sm:mt-0 dark:text-zinc-400 dark:hover:text-white"
               >
                 Vai ai movimenti →
               </Link>
@@ -426,47 +391,30 @@ export default function DashboardPage() {
 
         {/* Grafico + Ricorrenti */}
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.55fr_1fr]">
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Andamento finanziario
-                </h2>
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <h2 className="text-lg font-semibold">
+                Andamento finanziario
+              </h2>
 
-                <p className="mt-1 text-sm text-zinc-500">
-                  Entrate, uscite e risparmio nel tempo.
-                </p>
-              </div>
-
-              <div className="flex shrink-0 rounded-lg bg-zinc-100 p-1">
-                {[3, 6, 12].map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    onClick={() =>
-                      setHistoryRange(range as 3 | 6 | 12)
-                    }
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                      historyRange === range
-                        ? "bg-white text-zinc-950 shadow-sm"
-                        : "text-zinc-500 hover:text-zinc-950"
-                    }`}
-                  >
-                    {range}M
-                  </button>
-                ))}
-              </div>
+              <p className="mt-1 text-sm text-zinc-500">
+                Come si stanno muovendo le tue finanze nel tempo.
+              </p>
             </div>
 
-            {visibleHistory.length === 0 ? (
-              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50 text-sm text-zinc-500/50">
+            <span className="hidden rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 sm:block dark:bg-zinc-800">
+              Storico
+            </span>
+
+            {data.history.length === 0 ? (
+              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-800/50">
                 Salva almeno un piano mensile per iniziare a costruire lo storico.
               </div>
             ) : (
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={visibleHistory}
+                    data={data.history}
                     margin={{
                       top: 10,
                       right: 10,
@@ -553,10 +501,10 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="rounded-xl bg-zinc-100 p-2 text-zinc-600">
+                <div className="rounded-xl bg-zinc-100 p-2 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                   <CalendarDays size={18} />
                 </div>
 
@@ -565,7 +513,7 @@ export default function DashboardPage() {
                     Prossimi addebiti
                   </h2>
 
-                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  <p className="text-sm text-zinc-500">
                     Le prossime uscite ricorrenti.
                   </p>
                 </div>
@@ -573,14 +521,14 @@ export default function DashboardPage() {
 
               <Link
                 href="/ricorrenti"
-                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-950"
+                className="text-xs font-medium text-zinc-500 transition hover:text-zinc-950 dark:hover:text-white"
               >
                 Vedi tutti
               </Link>
             </div>
 
             {upcoming.length === 0 ? (
-              <div className="rounded-xl bg-zinc-50 p-5 text-sm text-zinc-500/60">
+              <div className="rounded-xl bg-zinc-50 p-5 text-sm text-zinc-500 dark:bg-zinc-800/60">
                 Nessun addebito ricorrente.
               </div>
             ) : (
@@ -588,10 +536,10 @@ export default function DashboardPage() {
                 {upcoming.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-100 p-3.5"
+                    className="flex items-center justify-between rounded-xl border border-zinc-100 p-3.5 dark:border-zinc-800"
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-xs font-semibold">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-xs font-semibold dark:bg-zinc-800">
                         {item.day}
                       </div>
 
@@ -616,7 +564,7 @@ export default function DashboardPage() {
 
             <Link
               href="/ricorrenti"
-              className="mt-5 flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 text-sm font-medium transition hover:bg-zinc-50"
+              className="mt-5 flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 text-sm font-medium transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
             >
               <Repeat size={16} />
               Gestisci ricorrenti
@@ -628,8 +576,8 @@ export default function DashboardPage() {
         <section
           className={`mt-6 rounded-2xl border p-6 ${
             summary.afterSavings < 0
-              ? "border-red-200 bg-red-50"
-              : "border-emerald-200 bg-emerald-50/60"
+              ? "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20"
+              : "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/10"
           }`}
         >
           <div className="flex items-start gap-4">
@@ -641,7 +589,7 @@ export default function DashboardPage() {
             ) : (
               <Check
                 size={21}
-                className="mt-0.5 shrink-0 text-zinc-700"
+                className="mt-0.5 shrink-0 text-zinc-700 dark:text-zinc-300"
               />
             )}
 
@@ -657,10 +605,6 @@ export default function DashboardPage() {
                   ? `Dopo spese e risparmio previsto il piano supera le entrate di ${euro(
                       Math.abs(summary.afterSavings)
                     )}.`
-                  : actual.expenses > summary.totalExpenses && actual.expenses > 0
-                  ? `Le uscite reali sono ${euro(
-                      actual.expenses - summary.totalExpenses
-                    )} sopra il budget pianificato.`
                   : `Dopo spese e risparmio previsto rimangono ${euro(
                       summary.afterSavings
                     )} disponibili.`}
@@ -724,14 +668,14 @@ function ActualCard({
     : difference <= 0;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+    <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-950">
       <p className="text-sm font-medium text-zinc-500">
         {label}
       </p>
 
       <div className="mt-2 flex items-end justify-between gap-3">
         <div>
-          <p className="text-2xl font-semibold tracking-tight text-zinc-950">
+          <p className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
             {euro(actual)}
           </p>
 
@@ -743,8 +687,8 @@ function ActualCard({
         <span
           className={`text-xs font-semibold ${
             isPositive
-              ? "text-emerald-600"
-              : "text-red-600"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
           }`}
         >
           {difference >= 0 ? "+" : ""}
@@ -773,9 +717,9 @@ function SummaryCard({
       className={`rounded-2xl border p-5 shadow-sm transition ${
         emphasis
           ? negative
-            ? "border-red-200 bg-red-50/70"
-            : "border-zinc-300 bg-zinc-100/80/80"
-          : "border-zinc-200 bg-white"
+            ? "border-red-200 bg-red-50/70 dark:border-red-900/50 dark:bg-red-950/20"
+            : "border-zinc-300 bg-zinc-100/80 dark:border-zinc-700 dark:bg-zinc-800/80"
+          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
       <div className="mb-4 flex items-center justify-between">
@@ -783,7 +727,7 @@ function SummaryCard({
           {label}
         </span>
 
-        <div className="rounded-xl bg-zinc-100 p-2 text-zinc-600">
+        <div className="rounded-xl bg-zinc-100 p-2 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
           {icon}
         </div>
       </div>
@@ -792,7 +736,7 @@ function SummaryCard({
         className={`text-2xl font-semibold tracking-tight ${
           negative
             ? "text-red-600"
-            : "text-zinc-950"
+            : "text-zinc-950 dark:text-white"
         }`}
       >
         {value}
@@ -823,7 +767,7 @@ function StatusMetric({
             className={`mt-1 text-xl font-semibold ${
               negative
                 ? "text-red-600"
-                : "text-zinc-950"
+                : "text-zinc-950 dark:text-white"
             }`}
           >
             {value}
@@ -833,10 +777,10 @@ function StatusMetric({
         <span className="text-xs text-zinc-500">{detail}</span>
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
         <div
           className={`h-full rounded-full transition-all ${
-            negative ? "bg-red-500" : "bg-zinc-800"
+            negative ? "bg-red-500" : "bg-zinc-800 dark:bg-zinc-300"
           }`}
           style={{ width: `${Math.min(Math.max(percentage, 0), 100)}%` }}
         />
@@ -874,10 +818,10 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
+      className="group rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
     >
       <div className="flex items-start gap-4">
-        <div className="rounded-xl bg-zinc-100 p-2.5 text-zinc-700 transition group-hover:bg-zinc-200">
+        <div className="rounded-xl bg-zinc-100 p-2.5 text-zinc-700 transition group-hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:group-hover:bg-zinc-700">
           {icon}
         </div>
 

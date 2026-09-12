@@ -1,0 +1,586 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export async function GET(request: NextRequest) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Non autenticato" },
+      { status: 401 }
+    );
+  }
+
+  const month = request.nextUrl.searchParams.get("month");
+
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return NextResponse.json(
+      { error: "Parametro month non valido" },
+      { status: 400 }
+    );
+  }
+
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  const daysInMonth = new Date(
+    year,
+    monthNumber,
+    0
+  ).getDate();
+
+  const startDate = `${month}-01`;
+
+  const endDate = `${month}-${String(daysInMonth).padStart(
+    2,
+    "0"
+  )}`;
+
+  const nextMonthDate = new Date(
+    year,
+    monthNumber,
+    1
+  );
+
+  const nextMonth = `${nextMonthDate.getFullYear()}-${String(
+    nextMonthDate.getMonth() + 1
+  ).padStart(2, "0")}-01`;
+
+  const today = new Date();
+  const todayKey = today.toISOString().slice(0, 10);
+
+  const isCurrentMonth =
+    month === todayKey.slice(0, 7);
+
+  const isFutureMonth =
+    month > todayKey.slice(0, 7);
+
+  const isPastMonth =
+    month < todayKey.slice(0, 7);
+
+  const [
+    transactionsResult,
+    recurringResult,
+    accountsResult,
+    budgetsResult,
+    previousTransactionsResult,
+  ] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select(
+        "id, account_id, date, description, amount, type, category, notes"
+      )
+      .eq("user_id", user.id)
+      .gte("date", startDate)
+      .lt("date", nextMonth)
+      .order("date", { ascending: true }),
+
+    supabase
+      .from("recurring_transactions")
+      .select(
+        "id, name, amount, type, day, category, active"
+      )
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .order("day", { ascending: true }),
+
+    supabase
+      .from("accounts")
+      .select("id, initial_balance")
+      .eq("user_id", user.id),
+
+    supabase
+      .from("budgets")
+      .select("category, planned_amount")
+      .eq("user_id", user.id)
+      .eq("month", startDate),
+
+    supabase
+      .from("transactions")
+      .select("amount, type")
+      .eq("user_id", user.id)
+      .lt("date", startDate),
+  ]);
+
+  if (transactionsResult.error) {
+    return NextResponse.json(
+      { error: transactionsResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  if (recurringResult.error) {
+    return NextResponse.json(
+      { error: recurringResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  if (accountsResult.error) {
+    return NextResponse.json(
+      { error: accountsResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  if (budgetsResult.error) {
+    return NextResponse.json(
+      { error: budgetsResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  if (previousTransactionsResult.error) {
+    return NextResponse.json(
+      { error: previousTransactionsResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  const transactions = transactionsResult.data ?? [];
+  const recurring = recurringResult.data ?? [];
+  const accounts = accountsResult.data ?? [];
+  const budgets = budgetsResult.data ?? [];
+  const previousTransactions =
+    previousTransactionsResult.data ?? [];
+
+  /*
+   * SALDO INIZIALE DEL MESE
+   */
+
+  const initialBalances = accounts.reduce(
+    (sum, account) =>
+      sum + Number(account.initial_balance ?? 0),
+    0
+  );
+
+  const previousNet = previousTransactions.reduce(
+    (sum, transaction) =>
+      sum +
+      (transaction.type === "income"
+        ? Number(transaction.amount)
+        : -Number(transaction.amount)),
+    0
+  );
+
+  const startingBalance =
+    initialBalances + previousNet;
+
+  /*
+   * MOVIMENTI REALI DEL MESE
+   */
+
+  const actualIncome = transactions
+    .filter(
+      (transaction) => transaction.type === "income"
+    )
+    .reduce(
+      (sum, transaction) =>
+        sum + Number(transaction.amount),
+      0
+    );
+
+  const actualExpenses = transactions
+    .filter(
+      (transaction) => transaction.type === "expense"
+    )
+    .reduce(
+      (sum, transaction) =>
+        sum + Number(transaction.amount),
+      0
+    );
+
+  const actualBalance =
+    startingBalance +
+    actualIncome -
+    actualExpenses;
+
+  /*
+   * BUDGET VARIABILE
+   */
+
+  const variableBudget = budgets.reduce(
+    (sum, item) =>
+      sum + Number(item.planned_amount ?? 0),
+    0
+  );
+
+  const budgetCategories = new Set(
+    budgets.map((budget) => budget.category)
+  );
+
+  const actualVariableExpenses = transactions
+    .filter(
+      (transaction) =>
+        transaction.type === "expense" &&
+        budgetCategories.has(transaction.category)
+    )
+    .reduce(
+      (sum, transaction) =>
+        sum + Number(transaction.amount),
+      0
+    );
+
+  const remainingVariableBudget = Math.max(
+    0,
+    variableBudget - actualVariableExpenses
+  );
+
+  /*
+   * RICORRENTI
+   *
+   * Un ricorrente futuro viene previsto.
+   * Un ricorrente già passato viene previsto solo
+   * se il relativo movimento non è ancora stato registrato.
+   */
+
+  const recurringByDay: Record<
+    number,
+    {
+      income: number;
+      expenses: number;
+      items: typeof recurring;
+    }
+  > = {};
+
+  recurring.forEach((item) => {
+    const day = Math.min(
+      Number(item.day),
+      daysInMonth
+    );
+
+    if (!recurringByDay[day]) {
+      recurringByDay[day] = {
+        income: 0,
+        expenses: 0,
+        items: [],
+      };
+    }
+
+    recurringByDay[day].items.push(item);
+
+    if (item.type === "income") {
+      recurringByDay[day].income += Number(
+        item.amount
+      );
+    } else {
+      recurringByDay[day].expenses += Number(
+        item.amount
+      );
+    }
+  });
+
+  /*
+   * MOVIMENTI PER GIORNO
+   */
+
+  const actualByDay: Record<
+    string,
+    {
+      income: number;
+      expenses: number;
+      net: number;
+    }
+  > = {};
+
+  transactions.forEach((transaction) => {
+    const date = transaction.date;
+
+    if (!actualByDay[date]) {
+      actualByDay[date] = {
+        income: 0,
+        expenses: 0,
+        net: 0,
+      };
+    }
+
+    const amount = Number(transaction.amount);
+
+    if (transaction.type === "income") {
+      actualByDay[date].income += amount;
+      actualByDay[date].net += amount;
+    } else {
+      actualByDay[date].expenses += amount;
+      actualByDay[date].net -= amount;
+    }
+  });
+
+  /*
+   * DETERMINA QUALI RICORRENTI SONO ANCORA DA PREVEDERE
+   */
+
+  const recurringFutureByDay: Record<
+    number,
+    {
+      income: number;
+      expenses: number;
+    }
+  > = {};
+
+  recurring.forEach((item) => {
+    const day = Math.min(
+      Number(item.day),
+      daysInMonth
+    );
+
+    const recurringDate = `${month}-${String(day).padStart(
+      2,
+      "0"
+    )}`;
+
+    let shouldForecast = false;
+
+    if (isFutureMonth) {
+      shouldForecast = true;
+    } else if (isCurrentMonth) {
+      shouldForecast = recurringDate >= todayKey;
+    }
+
+    if (!shouldForecast) {
+      return;
+    }
+
+    if (!recurringFutureByDay[day]) {
+      recurringFutureByDay[day] = {
+        income: 0,
+        expenses: 0,
+      };
+    }
+
+    if (item.type === "income") {
+      recurringFutureByDay[day].income += Number(
+        item.amount
+      );
+    } else {
+      recurringFutureByDay[day].expenses += Number(
+        item.amount
+      );
+    }
+  });
+
+  /*
+   * PREVISIONE DEI RICORRENTI FUTURI
+   */
+
+  const futureRecurringIncome = Object.values(
+    recurringFutureByDay
+  ).reduce(
+    (sum, item) => sum + item.income,
+    0
+  );
+
+  const futureRecurringExpenses = Object.values(
+    recurringFutureByDay
+  ).reduce(
+    (sum, item) => sum + item.expenses,
+    0
+  );
+
+  /*
+   * PREVISIONE FINALE
+   *
+   * Per il mese corrente:
+   * saldo reale di oggi
+   * + ricorrenti futuri
+   * - budget variabile ancora disponibile
+   *
+   * Per mesi futuri:
+   * saldo iniziale
+   * + ricorrenti
+   * - budget variabile
+   *
+   * Per mesi passati:
+   * il saldo reale è il dato definitivo.
+   */
+
+  let projectedEndBalance = actualBalance;
+
+  if (isCurrentMonth) {
+    projectedEndBalance =
+      actualBalance +
+      futureRecurringIncome -
+      futureRecurringExpenses -
+      remainingVariableBudget;
+  } else if (isFutureMonth) {
+    projectedEndBalance =
+      startingBalance +
+      futureRecurringIncome -
+      futureRecurringExpenses -
+      variableBudget;
+  }
+
+  /*
+   * GIORNI DEL MESE + FORECAST
+   *
+   * Il budget variabile residuo viene distribuito
+   * sui giorni futuri, così il grafico arriva
+   * esattamente alla previsione finale.
+   */
+
+  const forecastDays = [];
+
+  let runningActualBalance = startingBalance;
+  let runningForecastBalance = startingBalance;
+
+  const futureDays = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = `${month}-${String(day).padStart(
+      2,
+      "0"
+    )}`;
+
+    const isFutureDay =
+      isFutureMonth ||
+      (isCurrentMonth && date >= todayKey);
+
+    if (isFutureDay) {
+      futureDays.push(day);
+    }
+  }
+
+  const variableBudgetPerFutureDay =
+    futureDays.length > 0
+      ? remainingVariableBudget / futureDays.length
+      : 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = `${month}-${String(day).padStart(
+      2,
+      "0"
+    )}`;
+
+    const actual = actualByDay[date] ?? {
+      income: 0,
+      expenses: 0,
+      net: 0,
+    };
+
+    runningActualBalance += actual.net;
+
+    /*
+     * Il forecast parte dal saldo iniziale.
+     * Prima applichiamo i movimenti reali.
+     */
+
+    runningForecastBalance +=
+      actual.income - actual.expenses;
+
+    /*
+     * Poi aggiungiamo solo i ricorrenti che
+     * devono ancora verificarsi.
+     */
+
+    const futureRecurring =
+      recurringFutureByDay[day] ?? {
+        income: 0,
+        expenses: 0,
+      };
+
+    const isFutureDay =
+      isFutureMonth ||
+      (isCurrentMonth && date >= todayKey);
+
+    if (isFutureDay) {
+      runningForecastBalance +=
+        futureRecurring.income -
+        futureRecurring.expenses;
+
+      /*
+       * Distribuiamo il budget variabile residuo
+       * lungo i giorni futuri.
+       */
+
+      runningForecastBalance -=
+        variableBudgetPerFutureDay;
+    }
+
+    /*
+     * Nei mesi passati la previsione coincide
+     * semplicemente con il dato reale.
+     */
+
+    if (isPastMonth) {
+      runningForecastBalance =
+        runningActualBalance;
+    }
+
+    forecastDays.push({
+      date,
+      actualBalance: runningActualBalance,
+      forecastBalance: runningForecastBalance,
+      actualIncome: actual.income,
+      actualExpenses: actual.expenses,
+      recurringIncome:
+        futureRecurring.income,
+      recurringExpenses:
+        futureRecurring.expenses,
+    });
+  }
+
+  /*
+   * Per evitare piccoli errori di arrotondamento,
+   * forziamo l'ultimo punto del forecast al valore
+   * ufficiale della previsione finale.
+   */
+
+  if (forecastDays.length > 0) {
+    forecastDays[forecastDays.length - 1].forecastBalance =
+      projectedEndBalance;
+  }
+
+  /*
+   * RICORRENTI DEL MESE
+   */
+
+  const recurringIncome = recurring
+    .filter((item) => item.type === "income")
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount),
+      0
+    );
+
+  const recurringExpenses = recurring
+    .filter((item) => item.type === "expense")
+    .reduce(
+      (sum, item) =>
+        sum + Number(item.amount),
+      0
+    );
+
+  return NextResponse.json({
+    month,
+    transactions,
+    recurring,
+
+    startingBalance,
+
+    summary: {
+      actualIncome,
+      actualExpenses,
+      actualBalance,
+
+      recurringIncome,
+      recurringExpenses,
+
+      futureRecurringIncome,
+      futureRecurringExpenses,
+
+      recurringBalance:
+        recurringIncome -
+        recurringExpenses,
+
+      variableBudget,
+      actualVariableExpenses,
+      remainingVariableBudget,
+
+      projectedEndBalance,
+    },
+
+    forecastDays,
+  });
+}
